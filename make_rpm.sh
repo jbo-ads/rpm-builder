@@ -7,7 +7,7 @@ rm -rf build
 mkdir build
 cd build
 
-for i in gdal kdu expat proj sqlite ecw
+for i in gdal kdu expat proj sqlite ecw tiff
 do
   cmake3 .. -DNAME=$i
   cpack3

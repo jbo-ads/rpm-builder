@@ -9,6 +9,13 @@ if (NOT EXISTS "${IDIR}" OR NOT IS_DIRECTORY "${IDIR}")
   message(FATAL_ERROR "\"${NAME}\" is not a known package (check ${IDIR}/)")
 endif()
 
+if (NOT DEFINED RELEASE)
+  set(RELEASE 1)
+endif()
+if (NOT ${RELEASE} MATCHES "^[0-9]+$")
+  message(FATAL_ERROR "RELEASE must be a number, found \"${RELEASE}\"")
+endif()
+
 
 project(${NAME})
 
@@ -37,7 +44,13 @@ elseif(${NAME} STREQUAL proj)
 elseif(${NAME} STREQUAL sqlite)
   set(VERSION_FILE "${IDIR}/include/sqlite3.h")
   set(VSTRING "SQLITE_VERSION")
+  set(F 3)
   set(DIRS "bin" "include" "lib")
+elseif(${NAME} STREQUAL tiff)
+  set(VERSION_FILE "${IDIR}/include/tiffvers.h")
+  set(VSTRING "TIFFLIB_VERSION_STR")
+  set(F 5)
+  set(DIRS "bin" "include" "lib" "share")
 elseif(${NAME} STREQUAL gdal)
   set(VERSION_FILE "${IDIR}/include/gdal_version.h")
   set(VSUFFIX " ")
@@ -60,19 +73,28 @@ if (DEFINED VSUFFIX AND DEFINED VPATCH)
       OUTPUT_VARIABLE VERSION_PATCH)
 elseif(DEFINED VSTRING)
   execute_process(
-      COMMAND awk "-F[.\"]" "/define *${VSTRING} /{printf \"%s\",$(NF-3)}" "${VERSION_FILE}"
+      COMMAND awk "-F[\\\\\\\\ .\"]*"
+                  "/define *${VSTRING} /{printf \"%s\",$(v)}"
+                  "v=${F}"
+                  "${VERSION_FILE}"
       OUTPUT_VARIABLE VERSION_MAJOR)
   execute_process(
-      COMMAND awk "-F[.\"]" "/define *${VSTRING} /{printf \"%s\",$(NF-2)}" "${VERSION_FILE}"
+      COMMAND awk "-F[\\\\\\\\ .\"]*"
+                  "/define *${VSTRING} /{printf \"%s\",$(v+1)}"
+                  "v=${F}"
+                  "${VERSION_FILE}"
       OUTPUT_VARIABLE VERSION_MINOR)
   execute_process(
-      COMMAND awk "-F[.\"]" "/define *${VSTRING} /{printf \"%s\",$(NF-1)}" "${VERSION_FILE}"
+      COMMAND awk "-F[\\\\\\\\ .\"]*"
+                  "/define *${VSTRING} /{printf \"%s\",$(v+2)}"
+                  "v=${F}"
+                  "${VERSION_FILE}"
       OUTPUT_VARIABLE VERSION_PATCH)
 endif()
 set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 
-message(STATUS "PACKAGE: ${NAME} ${VERSION}")
+message(STATUS "PACKAGE: ${NAME}, VERSION: ${VERSION}, RELEASE: ${RELEASE}")
 
 
 set(INSTALL_DIR ".")
@@ -89,7 +111,7 @@ endif()
 set(CPACK_GENERATOR "RPM")
 set(CPACK_PACKAGE_NAME ${NAME})
 set(CPACK_PACKAGE_VERSION ${VERSION})
-set(CPACK_PACKAGE_RELEASE 1)
+set(CPACK_PACKAGE_RELEASE ${RELEASE})
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
 # set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
 set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/local")
