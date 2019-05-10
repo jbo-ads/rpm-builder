@@ -52,6 +52,6 @@ done
 # Pack installation in RPM
 #
 cmake3 -DNAME=$name ..
-cpack3
+cpack3 -G RPM
 
 cp *.rpm ..

@@ -10,7 +10,7 @@ cd build
 for i in gdal kdu expat proj sqlite ecw tiff
 do
   cmake3 .. -DNAME=$i
-  cpack3
+  cpack3 -G RPM
   mv *.rpm ../repo
   rm -rf *
 done
