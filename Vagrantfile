@@ -281,7 +281,57 @@ Vagrant.configure("2") do |config|
       mv *.rpm ..
       cd ..
 
+    fi
 
+
+    #########################################
+    #  Expat
+    #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
+
+    if [ ! -f geo-expat-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
+
+      ###  Récupération des sources
+      test -d libexpat || git clone https://github.com/libexpat/libexpat.git
+      cd libexpat/expat
+      git checkout R_2_2_6
+
+      ###  Compilation
+      ./buildconf.sh
+      ./configure --prefix=${INSTALL_DIR} --without-xmlwf
+      make
+
+      ###  Installation
+      make install
+
+      ###  Réglage du RPATH
+      cd /opt/geo/lib
+      patchelf --set-rpath '$ORIGIN' libexpat.so.1.6.8
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=${INSTALL_DIR}/include/expat.h
+      MAJOR=$(awk '/XML_MAJOR_VERSION /{print $NF}' ${FICVER})
+      MINOR=$(awk '/XML_MINOR_VERSION /{print $NF}' ${FICVER})
+      PATCH=$(awk '/XML_MICRO_VERSION /{print $NF}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=geo-expat \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="lib;include;share" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
     fi
 
 
