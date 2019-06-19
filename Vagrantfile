@@ -24,13 +24,79 @@ Vagrant.configure("2") do |config|
     ###  Dossier d'installation
     export INSTALL_DIR=/opt/geo
 
+
+    #########################################
+    #  ECW
+    #
+
     ###  Placement dans le dossier partagé
     cd /vagrant
+
+    if [ ! -f geo-ecw-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
+
+      ###  Récupération des librairies et leurs interfaces
+      ecwzip="erdas-ecw-sdk-5.3.0-linux.zip"
+      if [ ! -f ${ecwzip} ]
+      then
+        printf "\nErreur:\n" >&2
+        printf "La version 5.3.0 de la librairie ECW (${ecwzip})" >&2
+        printf " est nécessaire.\nMerci de la récupérer avant de" >&2
+        printf " relancer la procédure.\n \n" >&2
+        exit 1
+      fi
+      if [ ! -d ecw ] ; then
+        test -f ERDAS_ECWJP2_SDK-5.3.0.bin || unzip -qq ${ecwzip}
+        chmod +x ERDAS_ECWJP2_SDK-5.3.0.bin
+        ln -s /usr/bin/cat more
+        export PATH=.:$PATH
+        printf "1\nyes\n" | ./ERDAS_ECWJP2_SDK-5.3.0.bin
+        rsync -a $HOME/hexagon/ERDAS-ECW_JPEG_2000_SDK-5.3.0/Desktop_Read-Only/ ./ecw
+        rm -rf $HOME/hexagon ./more
+      fi
+
+      ###  Installation des librairies et ressources
+      cp -HR ecw/redistributable/x64 ${INSTALL_DIR}/lib
+      cp -HR ecw/{etc,include} ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}/share/doc/ecw
+      cp ecw/ERDAS_ECW_JPEG2000_SDK.pdf ecw/eula.txt ${INSTALL_DIR}/share/doc/ecw
+      cp -HR ecw/apidoc ${INSTALL_DIR}/share/doc/ecw
+
+      ###  Réglage du RPATH
+      cd /opt/geo/lib
+      patchelf --set-rpath '$ORIGIN' libNCSEcw.so.5.3.0
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=${INSTALL_DIR}/include/ECWJP2BuildNumber.h
+      MAJOR=$(awk '/NCS_ECWJP2_VER_MAJOR /{print $NF}' ${FICVER})
+      MINOR=$(awk '/NCS_ECWJP2_VER_MINOR /{print $NF}' ${FICVER})
+      PATCH=$(awk '/NCS_ECWJP2_VER_SERVICE /{print $NF}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=geo-ecw \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="lib;etc;include;share" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
+
+    fi
 
 
     #########################################
     #  Kakadu
     #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
 
     if [ ! -f geo-kdu-*.x86_64.rpm ] ; then
 
@@ -107,6 +173,9 @@ Vagrant.configure("2") do |config|
     #########################################
     #  PROJ
     #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
 
     if [ ! -f geo-proj-*.x86_64.rpm ] ; then
 
