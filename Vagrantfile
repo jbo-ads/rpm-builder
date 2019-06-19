@@ -223,6 +223,68 @@ Vagrant.configure("2") do |config|
     fi
 
 
+    #########################################
+    #  SQLite
+    #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
+
+    if [ ! -f geo-sqlite3-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}/{lib,bin,include}
+
+      ###  Récupération des sources
+      sqlzip="sqlite-amalgamation-3270200.zip"
+      test -f ${sqlzip} \
+        || curl -O https://www.sqlite.org/2019/${sqlzip}
+      test -d ${sqlzip%.zip} || unzip -qq ${sqlzip}
+      cd ${sqlzip%.zip}
+
+      ###  Compilation
+      gcc shell.c sqlite3.c -lpthread -ldl -o sqlite3
+      gcc -c sqlite3.c -o sqlite3-static.o
+      ar rcs libsqlite3.a sqlite3-static.o
+      gcc -c -fPIC sqlite3.c -o sqlite3.o
+      gcc -shared sqlite3.o -lpthread -ldl -o libsqlite3.so
+
+      ### Installation
+      cp libsqlite3.a libsqlite3.so ${INSTALL_DIR}/lib
+      cp sqlite3 ${INSTALL_DIR}/bin
+      cp sqlite3.h sqlite3ext.h ${INSTALL_DIR}/include
+
+      ###  Réglage du RPATH
+      cd /opt/geo/lib
+      patchelf --set-rpath '$ORIGIN' libsqlite3.so
+      for exe in ../bin/* ; do
+        patchelf --set-rpath '$ORIGIN/../lib' ${exe}
+      done
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=${INSTALL_DIR}/include/sqlite3.h
+      MAJOR=$(awk -F'[".]' '/SQLITE_VERSION /{print $2}' ${FICVER})
+      MINOR=$(awk -F'[".]' '/SQLITE_VERSION /{print $3}' ${FICVER})
+      PATCH=$(awk -F'[".]' '/SQLITE_VERSION /{print $4}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=geo-sqlite3 \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="lib;bin;include" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
+
+
+    fi
+
+
   SHELL
 
 end
