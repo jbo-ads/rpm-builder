@@ -22,7 +22,8 @@ Vagrant.configure("2") do |config|
                    java-11 java-11-devel
 
     ###  Dossier d'installation
-    export INSTALL_DIR=/opt/geo
+    export PREFIX=i4d
+    export INSTALL_DIR=/opt/${PREFIX}
 
 
     #########################################
@@ -32,7 +33,7 @@ Vagrant.configure("2") do |config|
     ###  Placement dans le dossier partagé
     cd /vagrant
 
-    if [ ! -f geo-ecw-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-ecw-*.x86_64.rpm ] ; then
 
       ###  Préparation du dossier d'installation
       rm -rf ${INSTALL_DIR}
@@ -66,7 +67,7 @@ Vagrant.configure("2") do |config|
       cp -HR ecw/apidoc ${INSTALL_DIR}/share/doc/ecw
 
       ###  Réglage du RPATH
-      cd /opt/geo/lib
+      cd ${INSTALL_DIR}/lib
       patchelf --set-rpath '$ORIGIN' libNCSEcw.so.5.3.0
 
       ###  Création du RPM
@@ -78,7 +79,7 @@ Vagrant.configure("2") do |config|
       rm -rf build
       mkdir build
       cd build
-      cmake3 -DNAME=geo-ecw \
+      cmake3 -DNAME=${PREFIX}-ecw \
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
@@ -98,7 +99,7 @@ Vagrant.configure("2") do |config|
     ###  Placement dans le dossier partagé
     cd /vagrant
 
-    if [ ! -f geo-kdu-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-kdu-*.x86_64.rpm ] ; then
 
       ###  Préparation du dossier d'installation
       rm -rf ${INSTALL_DIR}
@@ -118,8 +119,8 @@ Vagrant.configure("2") do |config|
       cd ${kduzip%.zip}
 
       ###  Préparation de la compilation
-      sed -i 's/^\(INCLUDE_AVX2\)/# \1/' $(find . -name Makefile-Linux-x86-64-gcc)
-      sed -i 's/\(-m64\)/\1 -fPIC/' apps/make/Makefile-Linux-x86-64-gcc
+      sed -i 's/^INCLUDE_AVX2/# INCLUDE_AVX2/' $(find . -name Makefile-Linux-x86-64-gcc)
+      sed -i 's/-m64/-m64 -fPIC/' apps/make/Makefile-Linux-x86-64-gcc
 
       ###  Compilation
       cd make
@@ -157,7 +158,7 @@ Vagrant.configure("2") do |config|
       rm -rf build
       mkdir build
       cd build
-      cmake3 -DNAME=geo-kdu \
+      cmake3 -DNAME=${PREFIX}-kdu \
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
@@ -177,7 +178,7 @@ Vagrant.configure("2") do |config|
     ###  Placement dans le dossier partagé
     cd /vagrant
 
-    if [ ! -f geo-proj-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-proj-*.x86_64.rpm ] ; then
 
       ###  Préparation du dossier d'installation
       rm -rf ${INSTALL_DIR}
@@ -190,12 +191,12 @@ Vagrant.configure("2") do |config|
 
       ###  Compilation et installation
       test -f configure || ./autogen.sh
-      test -f Makefile || ./configure --prefix=/opt/geo
+      test -f Makefile || ./configure --prefix=${INSTALL_DIR}
       make
       make install
 
       ###  Réglage du RPATH
-      cd /opt/geo/lib
+      cd ${INSTALL_DIR}/lib
       patchelf --set-rpath '$ORIGIN' libproj.so.13.1.1
       for exe in ../bin/* ; do
         patchelf --set-rpath '$ORIGIN/../lib' ${exe}
@@ -210,7 +211,7 @@ Vagrant.configure("2") do |config|
       rm -rf build
       mkdir build
       cd build
-      cmake3 -DNAME=geo-proj \
+      cmake3 -DNAME=${PREFIX}-proj \
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
@@ -230,7 +231,7 @@ Vagrant.configure("2") do |config|
     ###  Placement dans le dossier partagé
     cd /vagrant
 
-    if [ ! -f geo-sqlite3-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-sqlite3-*.x86_64.rpm ] ; then
 
       ###  Préparation du dossier d'installation
       rm -rf ${INSTALL_DIR}
@@ -256,7 +257,7 @@ Vagrant.configure("2") do |config|
       cp sqlite3.h sqlite3ext.h ${INSTALL_DIR}/include
 
       ###  Réglage du RPATH
-      cd /opt/geo/lib
+      cd ${INSTALL_DIR}/lib
       patchelf --set-rpath '$ORIGIN' libsqlite3.so
       for exe in ../bin/* ; do
         patchelf --set-rpath '$ORIGIN/../lib' ${exe}
@@ -271,7 +272,7 @@ Vagrant.configure("2") do |config|
       rm -rf build
       mkdir build
       cd build
-      cmake3 -DNAME=geo-sqlite3 \
+      cmake3 -DNAME=${PREFIX}-sqlite3 \
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
@@ -291,7 +292,7 @@ Vagrant.configure("2") do |config|
     ###  Placement dans le dossier partagé
     cd /vagrant
 
-    if [ ! -f geo-expat-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-expat-*.x86_64.rpm ] ; then
 
       ###  Préparation du dossier d'installation
       rm -rf ${INSTALL_DIR}
@@ -311,7 +312,7 @@ Vagrant.configure("2") do |config|
       make install
 
       ###  Réglage du RPATH
-      cd /opt/geo/lib
+      cd ${INSTALL_DIR}/lib
       patchelf --set-rpath '$ORIGIN' libexpat.so.1.6.8
 
       ###  Création du RPM
@@ -323,7 +324,7 @@ Vagrant.configure("2") do |config|
       rm -rf build
       mkdir build
       cd build
-      cmake3 -DNAME=geo-expat \
+      cmake3 -DNAME=${PREFIX}-expat \
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
@@ -332,6 +333,66 @@ Vagrant.configure("2") do |config|
       cpack3 -G RPM
       mv *.rpm ..
       cd ..
+    fi
+
+
+    #########################################
+    #  GDAL
+    #      C'est le gros morceau: les paquets
+    #  précédents n'avaient aucune dépendance
+    #  alors que  GDAL dépend de ces paquets.
+    #      Pour la compilation, il est nécés-
+    #  saire que GDAL les localise. Pour cela
+    #  ils sont installés provisoirement dans
+    #  /usr/local. Plus tard lors de l'exécu-
+    #  tion ils seront placés à l'emplacement
+    #  prévu ${INSTALL_DIR}, tout comme GDAL.
+    #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
+
+    if [ ! -f ${PREFIX}-gdal-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
+
+      ###  Installation provisoire des dépendances dans /usr/local
+      TEMP_INSTALL=/usr/local
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-ecw-5.3.0-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-kdu-7.10.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-proj-5.2.0-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-sqlite3-3.27.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-expat-2.2.6-1.x86_64.rpm
+
+      ###  Récupération des sources
+      test -d gdal || git clone https://github.com/OSGeo/gdal.git
+      cd gdal/gdal
+      git checkout decf4b1 # Première révision de la branche 2.4 qui
+                           # corrige un bug de "Content-Type" dans le
+                           # driver ElasticSearch (correction utile
+                           # pour MapServer). À remplacer dès que
+                           # possible par "v2.4.2".
+
+      ###  Préparation des sources pour l'intégration de Kakadu
+      sed -i '12,$s/^/### /' frmts/jp2kak/jp2kak.lst
+
+      ###  Compilation
+      ./autogen.sh
+      ./configure --prefix=${INSTALL_DIR} --disable-rpath \
+                  --with-libtiff=internal \
+                  --with-geotiff=internal \
+                  --with-jpeg=internal \
+                  --with-ecw=/vagrant/ecw \
+                  --with-expat=${TEMP_INSTALL} \
+                  --with-sqlite3=${TEMP_INSTALL} \
+                  --with-proj=${TEMP_INSTALL} \
+                  --with-kakadu=/vagrant/${kduzip%.zip}
+      make
+
+      ###  Installation
+
     fi
 
 
