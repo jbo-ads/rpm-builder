@@ -115,8 +115,15 @@ Vagrant.configure("2") do |config|
         printf " relancer la procédure.\n \n" >&2
         exit 1
       fi
-      test -d ${kduzip%.zip} || unzip -qq ${kduzip}
-      cd ${kduzip%.zip}
+      if [ ! -d kdu ]
+      then
+        if [ ! -d ${kduzip%.zip} ]
+        then
+          unzip -qq ${kduzip}
+        fi
+        mv ${kduzip%.zip} kdu
+      fi
+      cd kdu
 
       ###  Préparation de la compilation
       sed -i 's/^INCLUDE_AVX2/# INCLUDE_AVX2/' $(find . -name Makefile-Linux-x86-64-gcc)
@@ -127,18 +134,6 @@ Vagrant.configure("2") do |config|
       export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
       make -f Makefile-Linux-x86-64-gcc
       cd ..
-
-      ###  Installation des sources et objets dont GDAL aura besoin
-      mkdir -p ${INSTALL_DIR}/share/kdu/coresys/common
-      cp ./coresys/common/*.h ${INSTALL_DIR}/share/kdu/coresys/common
-      for dir in compressed_io jp2 image args support kdu_compress ; do
-        mkdir -p ${INSTALL_DIR}/share/kdu/apps/$dir
-        cp ./apps/$dir/*.h ${INSTALL_DIR}/share/kdu/apps/$dir
-      done
-      mkdir -p ${INSTALL_DIR}/share/kdu/apps/make
-      cp ./apps/make/*.o ${INSTALL_DIR}/share/kdu/apps/make
-      mkdir -p ${INSTALL_DIR}/share/kdu/apps/caching_sources
-      cp ./apps/caching_sources/* ${INSTALL_DIR}/share/kdu/apps/caching_sources
 
       ###  Installation des librairies et réglage du RPATH
       cp lib/Linux-x86-64-gcc/libkdu* ${INSTALL_DIR}/lib
@@ -151,7 +146,7 @@ Vagrant.configure("2") do |config|
 
       ###  Création du RPM
       cd /vagrant
-      FICVER=${INSTALL_DIR}/share/kdu/coresys/common/kdu_compressed.h
+      FICVER=kdu/coresys/common/kdu_compressed.h
       MAJOR=$(awk '/KDU_MAJOR_VERSION/{print $NF}' ${FICVER})
       MINOR=$(awk '/KDU_MINOR_VERSION/{print $NF}' ${FICVER})
       PATCH=$(awk '/KDU_PATCH_VERSION/{print $NF}' ${FICVER})
@@ -162,7 +157,7 @@ Vagrant.configure("2") do |config|
              -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
-             -DDIRS="lib;share" \
+             -DDIRS="lib" \
              ..
       cpack3 -G RPM
       mv *.rpm ..
@@ -381,17 +376,47 @@ Vagrant.configure("2") do |config|
       ###  Compilation
       ./autogen.sh
       ./configure --prefix=${INSTALL_DIR} --disable-rpath \
+                  --with-jpeg=internal \
                   --with-libtiff=internal \
                   --with-geotiff=internal \
-                  --with-jpeg=internal \
+                  --with-rename-internal-libtiff-symbols=yes \
+                  --with-rename-internal-libgeotiff-symbols=yes \
                   --with-ecw=/vagrant/ecw \
-                  --with-expat=${TEMP_INSTALL} \
-                  --with-sqlite3=${TEMP_INSTALL} \
-                  --with-proj=${TEMP_INSTALL} \
-                  --with-kakadu=/vagrant/${kduzip%.zip}
+                  --with-kakadu=/vagrant/kdu \
+                  --with-local=${TEMP_INSTALL} \
+                  --with-expat \
+                  --with-sqlite3 \
+                  --with-proj
       make
 
       ###  Installation
+      make install
+
+      ###  Réglage du RPATH
+      cd ${INSTALL_DIR}/lib
+      patchelf --set-rpath '$ORIGIN' libgdal.so.20.5.1
+      for exe in ../bin/* ; do
+        patchelf --set-rpath '$ORIGIN/../lib' ${exe}
+      done
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=${INSTALL_DIR}/include/gdal_version.h
+      MAJOR=$(awk '/GDAL_VERSION_MAJOR /{print $NF}' ${FICVER})
+      MINOR=$(awk '/GDAL_VERSION_MINOR /{print $NF}' ${FICVER})
+      PATCH=$(awk '/GDAL_VERSION_REV /{print $NF}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=${PREFIX}-gdal \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="bin;lib;include;share;etc" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
 
     fi
 
