@@ -418,7 +418,60 @@ Vagrant.configure("2") do |config|
       mv *.rpm ..
       cd ..
 
+      ###  Suppression des installations provisoires des dépendances
+      rpm -e ${PREFIX}-ecw \
+             ${PREFIX}-kdu \
+             ${PREFIX}-proj \
+             ${PREFIX}-sqlite3 \
+             ${PREFIX}-expat
+
     fi
+
+
+### #########################################
+### #  MapServer
+### #
+
+### ###  Placement dans le dossier partagé
+### cd /vagrant
+
+### if [ ! -f ${PREFIX}-mapserver-*.x86_64.rpm ] ; then
+
+###   ###  Préparation du dossier d'installation
+###   rm -rf ${INSTALL_DIR}
+###   mkdir -p ${INSTALL_DIR}
+
+###   ###  Récupération des sources
+###   test -d mapserver || git clone https://github.com/mapserver/mapserver.git
+###   cd mapserver
+###   git checkout rel-7-4-1
+
+###   ###  Compilation
+###   rm -rf build
+###   mkdir build
+###   cd build
+###   cmake3 -DWITH_CLIENT_WMS=1 \
+###          -DWITH_CLIENT_WFS=1 \
+###          -DWITH_KML=1 \
+###          -DWITH_SOS=1 \
+###          -DWITH_PHP=1 \
+###          -DWITH_PYTHON=1 \
+###          -DWITH_JAVA=0 \
+###          -DWITH_THREAD_SAFETY=1 \
+###          -DWITH_FCGI=0 \
+###          -DWITH_EXEMPI=1 \
+###          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+###          -DWITH_RSVG=1 \
+###          -DWITH_CURL=1 \
+###          -DWITH_FRIBIDI=1 \
+###          -DWITH_HARFBUZZ=1 \
+###          ..
+
+###   ###  Installation
+###   ###  Réglage du RPATH
+###   ###  Création du RPM
+
+### fi
 
 
   SHELL
