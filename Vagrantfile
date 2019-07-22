@@ -21,6 +21,17 @@ Vagrant.configure("2") do |config|
                    git automake libtool \
                    java-11 java-11-devel
 
+    ### Dépendances de MapServer
+    yum install -y libpng libpng-devel libjpeg-turbo libjpeg-turbo-devel \
+                   freetype freetype-devel protobuf-c protobuf-c-devel \
+                   fribidi fribidi-devel harfbuzz harfbuzz-devel \
+                   cairo cairo-devel geos geos-devel \
+                   postgresql postgresql-devel postgis \
+                   curl libcurl libcurl-devel librsvg2 librsvg2-devel \
+                   giflib giflib-devel libxml2 libxml2-devel \
+                   exempi exempi-devel swig3 \
+                   python-libs python-setuptools python-devel
+
     ###  Dossier d'installation
     export PREFIX=i4d
     export INSTALL_DIR=/opt/${PREFIX}
@@ -428,50 +439,97 @@ Vagrant.configure("2") do |config|
     fi
 
 
-### #########################################
-### #  MapServer
-### #
+    #########################################
+    #  MapServer
+    #
 
-### ###  Placement dans le dossier partagé
-### cd /vagrant
+    ###  Placement dans le dossier partagé
+    cd /vagrant
 
-### if [ ! -f ${PREFIX}-mapserver-*.x86_64.rpm ] ; then
+    if [ ! -f ${PREFIX}-mapserver-*.x86_64.rpm ] ; then
 
-###   ###  Préparation du dossier d'installation
-###   rm -rf ${INSTALL_DIR}
-###   mkdir -p ${INSTALL_DIR}
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
 
-###   ###  Récupération des sources
-###   test -d mapserver || git clone https://github.com/mapserver/mapserver.git
-###   cd mapserver
-###   git checkout rel-7-4-1
+      ###  Installation provisoire des dépendances dans /usr/local
+      TEMP_INSTALL=/usr/local
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-ecw-5.3.0-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-kdu-7.10.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-proj-5.2.0-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-sqlite3-3.27.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-expat-2.2.6-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-gdal-2.4.1-1.x86_64.rpm
 
-###   ###  Compilation
-###   rm -rf build
-###   mkdir build
-###   cd build
-###   cmake3 -DWITH_CLIENT_WMS=1 \
-###          -DWITH_CLIENT_WFS=1 \
-###          -DWITH_KML=1 \
-###          -DWITH_SOS=1 \
-###          -DWITH_PHP=1 \
-###          -DWITH_PYTHON=1 \
-###          -DWITH_JAVA=0 \
-###          -DWITH_THREAD_SAFETY=1 \
-###          -DWITH_FCGI=0 \
-###          -DWITH_EXEMPI=1 \
-###          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-###          -DWITH_RSVG=1 \
-###          -DWITH_CURL=1 \
-###          -DWITH_FRIBIDI=1 \
-###          -DWITH_HARFBUZZ=1 \
-###          ..
+      ###  Récupération des sources
+      test -d mapserver || git clone https://github.com/mapserver/mapserver.git
+      cd mapserver
+      git checkout rel-7-4-1
 
-###   ###  Installation
-###   ###  Réglage du RPATH
-###   ###  Création du RPM
+      ###  Compilation
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -Wno-dev \
+             -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR} \
+             -DWITH_CLIENT_WMS=1 \
+             -DWITH_CLIENT_WFS=1 \
+             -DWITH_KML=1 \
+             -DWITH_SOS=1 \
+             -DWITH_PHP=0 \
+             -DWITH_PYTHON=1 \
+             -DWITH_JAVA=0 \
+             -DWITH_THREAD_SAFETY=1 \
+             -DWITH_FCGI=0 \
+             -DWITH_EXEMPI=1 \
+             -DWITH_RSVG=1 \
+             -DWITH_CURL=1 \
+             -DWITH_FRIBIDI=1 \
+             -DWITH_HARFBUZZ=1 \
+             ..
+      make
 
-### fi
+      ###  Installation
+      MSPYTHONPATH=${INSTALL_DIR}/lib/python2.7/site-packages/
+      mkdir -p ${MSPYTHONPATH}
+      export PYTHONPATH=${PYTHONPATH}:${MSPYTHONPATH}
+      make install
+
+      ###  Réglage du RPATH
+      cd ${INSTALL_DIR}/lib
+      patchelf --set-rpath '$ORIGIN' libmapserver.so.7.4.1
+      for exe in ../bin/* ; do
+        patchelf --set-rpath '$ORIGIN/../lib' ${exe}
+      done
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=${INSTALL_DIR}/include/mapserver/mapserver-version.h
+      MAJOR=$(awk '/MS_VERSION_MAJOR /{print $NF}' ${FICVER})
+      MINOR=$(awk '/MS_VERSION_MINOR /{print $NF}' ${FICVER})
+      PATCH=$(awk '/MS_VERSION_REV /{print $NF}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=${PREFIX}-mapserver \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="bin;lib;include;share" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
+
+      ###  Suppression des installations provisoires des dépendances
+      rpm -e ${PREFIX}-ecw \
+             ${PREFIX}-kdu \
+             ${PREFIX}-proj \
+             ${PREFIX}-sqlite3 \
+             ${PREFIX}-expat \
+             ${PREFIX}-gdal
+
+    fi
 
 
   SHELL
