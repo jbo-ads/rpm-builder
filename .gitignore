@@ -1,4 +1,6 @@
-build
-repo
+.vagrant/
+erdas-*.zip
+v7_A_2-01185C.zip
 *.rpm
-*.swp
+.*.swp
+
