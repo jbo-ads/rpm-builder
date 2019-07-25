@@ -21,7 +21,7 @@ Vagrant.configure("2") do |config|
                    git automake libtool \
                    java-11 java-11-devel
 
-    ### Dépendances de MapServer
+    ###  Dépendances de MapServer
     yum install -y libpng libpng-devel libjpeg-turbo libjpeg-turbo-devel \
                    freetype freetype-devel protobuf-c protobuf-c-devel \
                    fribidi fribidi-devel harfbuzz harfbuzz-devel \
@@ -30,7 +30,12 @@ Vagrant.configure("2") do |config|
                    curl libcurl libcurl-devel librsvg2 librsvg2-devel \
                    giflib giflib-devel libxml2 libxml2-devel \
                    exempi exempi-devel swig3 \
-                   python-libs python-setuptools python-devel
+                   python-libs python-setuptools python-devel \
+                   fcgi fcgi-devel
+
+    ###  Dépendances de MapCache
+    yum install -y apr apr-devel pixman pixman-devel libtiff libtiff-devel \
+                   libgeotiff libgeotiff-devel httpd httpd-devel
 
     ###  Dossier d'installation
     export PREFIX=i4d
@@ -480,7 +485,7 @@ Vagrant.configure("2") do |config|
              -DWITH_PYTHON=1 \
              -DWITH_JAVA=0 \
              -DWITH_THREAD_SAFETY=1 \
-             -DWITH_FCGI=0 \
+             -DWITH_FCGI=1 \
              -DWITH_EXEMPI=1 \
              -DWITH_RSVG=1 \
              -DWITH_CURL=1 \
@@ -531,6 +536,78 @@ Vagrant.configure("2") do |config|
 
     fi
 
+
+    #########################################
+    #  MapCache
+    #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
+
+    if [ ! -f ${PREFIX}-mapcache-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
+
+      ###  Installation provisoire des dépendances dans /usr/local
+      TEMP_INSTALL=/usr/local
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-sqlite3-3.27.2-1.x86_64.rpm
+
+      ###  Récupération des sources
+      test -d mapcache || git clone https://github.com/mapserver/mapcache.git
+      cd mapcache
+      git checkout rel-1-8-0
+
+      ###  Compilation
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -Wno-dev \
+             -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR} \
+             -DWITH_TIFF=ON \
+             -DWITH_GEOTIFF=ON \
+             -DWITH_POSTGRESQL=ON \
+             -DWITH_GDAL=OFF \
+             -DWITH_OGR=OFF \
+             -DWITH_GEOS=OFF \
+             -DWITH_PCRE=ON \
+             ..
+      make
+
+      ###  Installation
+      make install
+
+      ###  Réglage du RPATH
+      cd ${INSTALL_DIR}/lib
+      patchelf --set-rpath '$ORIGIN' /opt/i4d/lib/libmapcache.so.1.8.0
+      for exe in ../bin/* ; do
+        patchelf --set-rpath '$ORIGIN/../lib' ${exe}
+      done
+
+      ###  Création du RPM
+      cd /vagrant
+      FICVER=mapcache/build/include/mapcache-version.h
+      MAJOR=$(awk '/MAPCACHE_VERSION_MAJOR /{print $NF}' ${FICVER})
+      MINOR=$(awk '/MAPCACHE_VERSION_MINOR /{print $NF}' ${FICVER})
+      PATCH=$(awk '/MAPCACHE_VERSION_REV /{print $NF}' ${FICVER})
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=${PREFIX}-mapcache \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="bin;lib" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
+
+      ###  Suppression des installations provisoires des dépendances
+      rpm -e ${PREFIX}-sqlite3
+
+    fi
 
   SHELL
 
