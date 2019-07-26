@@ -11,6 +11,11 @@ foreach(DIR ${DIRS})
   install(DIRECTORY "${INSTALL_DIR}/${DIR}" DESTINATION "." USE_SOURCE_PERMISSIONS)
 endforeach()
 
+foreach(FILE ${FILES})
+  get_filename_component(DEST ${FILE} DIRECTORY)
+  install(PROGRAMS ${FILE} DESTINATION ${DEST})
+endforeach()
+
 
 set(CPACK_GENERATOR "RPM")
 set(CPACK_PACKAGE_NAME ${NAME})
@@ -33,7 +38,9 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/man
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/man/man1
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/man/man3
-  ${CPACK_PACKAGING_INSTALL_PREFIX}/share/doc)
+  ${CPACK_PACKAGING_INSTALL_PREFIX}/share/doc
+  /usr/lib64/httpd
+  /usr/lib64/httpd/modules)
 
 
 include(CPack)

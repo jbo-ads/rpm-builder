@@ -578,9 +578,16 @@ Vagrant.configure("2") do |config|
       ###  Installation
       make install
 
+      ###  Post-installation: modifications sur mod_mapcache.so
+      MODPATH=$(grep mod_mapcache.so install_manifest.txt)
+      mv ${MODPATH} ${INSTALL_DIR}/lib
+      ln -s ${INSTALL_DIR}/lib/mod_mapcache.so ${MODPATH}
+
       ###  Réglage du RPATH
       cd ${INSTALL_DIR}/lib
-      patchelf --set-rpath '$ORIGIN' /opt/i4d/lib/libmapcache.so.1.8.0
+      for so in libmapcache.so.1.8.0 mod_mapcache.so ; do
+        patchelf --set-rpath '$ORIGIN' ${so}
+      done
       for exe in ../bin/* ; do
         patchelf --set-rpath '$ORIGIN/../lib' ${exe}
       done
@@ -599,6 +606,7 @@ Vagrant.configure("2") do |config|
              -DRELEASE=1 \
              -DINSTALL_DIR=${INSTALL_DIR} \
              -DDIRS="bin;lib" \
+             -DFILES="${MODPATH}" \
              ..
       cpack3 -G RPM
       mv *.rpm ..
@@ -606,6 +614,9 @@ Vagrant.configure("2") do |config|
 
       ###  Suppression des installations provisoires des dépendances
       rpm -e ${PREFIX}-sqlite3
+
+      ###  Supression des fichiers de post-installation
+      rm ${MODPATH}
 
     fi
 
