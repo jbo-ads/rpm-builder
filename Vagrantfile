@@ -15,11 +15,34 @@ Vagrant.configure("2") do |config|
     #  Préparation générale
     #
 
+    ###  Dossier d'installation
+    export PREFIX=i4d
+    export INSTALL_DIR=/opt/${PREFIX}
+
     ###  Outils et dépendances de base
     yum install -y epel-release
+
+
+    #########################################
+    #  Préparation pour la fabrication des
+    #  RPM: Si le RPM final qui contient le
+    #  Dépôt YUM "i4d" existe, alors la
+    #  machine virtuelle est laissée en
+    #  l'état. Ça permet de tester le
+    #  déploiement de ce dépôt et
+    #  l'installation des paquets qui sont
+    #  dedans.
+    #
+
+    if [ -f /vagrant/${PREFIX}-repo-*.x86_64.rpm ] ; then
+      exit
+    fi
+
+    ###  Outils et dépendances de fabrication
     yum install -y unzip gcc-c++ patchelf cmake3 rpm-build \
                    git automake libtool \
-                   java-11 java-11-devel
+                   java-11 java-11-devel \
+                   createrepo
 
     ###  Dépendances de MapServer
     yum install -y libpng libpng-devel libjpeg-turbo libjpeg-turbo-devel \
@@ -36,10 +59,6 @@ Vagrant.configure("2") do |config|
     ###  Dépendances de MapCache
     yum install -y apr apr-devel pixman pixman-devel libtiff libtiff-devel \
                    libgeotiff libgeotiff-devel httpd httpd-devel
-
-    ###  Dossier d'installation
-    export PREFIX=i4d
-    export INSTALL_DIR=/opt/${PREFIX}
 
 
     #########################################
@@ -380,11 +399,12 @@ Vagrant.configure("2") do |config|
       ###  Récupération des sources
       test -d gdal || git clone https://github.com/OSGeo/gdal.git
       cd gdal/gdal
-      git checkout decf4b1 # Première révision de la branche 2.4 qui
+      ### checkout decf4b1 # Première révision de la branche 2.4 qui
                            # corrige un bug de "Content-Type" dans le
                            # driver ElasticSearch (correction utile
                            # pour MapServer). À remplacer dès que
                            # possible par "v2.4.2".
+      git checkout v2.4.2
 
       ###  Préparation des sources pour l'intégration de Kakadu
       sed -i '12,$s/^/### /' frmts/jp2kak/jp2kak.lst
@@ -410,7 +430,7 @@ Vagrant.configure("2") do |config|
 
       ###  Réglage du RPATH
       cd ${INSTALL_DIR}/lib
-      patchelf --set-rpath '$ORIGIN' libgdal.so.20.5.1
+      patchelf --set-rpath '$ORIGIN' libgdal.so.20.5.2
       for exe in ../bin/* ; do
         patchelf --set-rpath '$ORIGIN/../lib' ${exe}
       done
@@ -464,7 +484,7 @@ Vagrant.configure("2") do |config|
       rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-proj-5.2.0-1.x86_64.rpm
       rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-sqlite3-3.27.2-1.x86_64.rpm
       rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-expat-2.2.6-1.x86_64.rpm
-      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-gdal-2.4.1-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-gdal-2.4.2-1.x86_64.rpm
 
       ###  Récupération des sources
       test -d mapserver || git clone https://github.com/mapserver/mapserver.git
@@ -476,6 +496,7 @@ Vagrant.configure("2") do |config|
       mkdir build
       cd build
       cmake3 -Wno-dev \
+             -DCMAKE_PREFIX_PATH=${TEMP_INSTALL} \
              -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR} \
              -DWITH_CLIENT_WMS=1 \
              -DWITH_CLIENT_WFS=1 \
@@ -491,6 +512,10 @@ Vagrant.configure("2") do |config|
              -DWITH_CURL=1 \
              -DWITH_FRIBIDI=1 \
              -DWITH_HARFBUZZ=1 \
+             -DWITH_POSTGIS=1 \
+             -DWITH_GEOS=1 \
+             -DWITH_PROJ=1 \
+             -DWITH_GDAL=1 \
              ..
       make
 
@@ -552,7 +577,12 @@ Vagrant.configure("2") do |config|
 
       ###  Installation provisoire des dépendances dans /usr/local
       TEMP_INSTALL=/usr/local
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-ecw-5.3.0-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-kdu-7.10.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-proj-5.2.0-1.x86_64.rpm
       rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-sqlite3-3.27.2-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-expat-2.2.6-1.x86_64.rpm
+      rpm -ivh --prefix=${TEMP_INSTALL} ${PREFIX}-gdal-2.4.2-1.x86_64.rpm
 
       ###  Récupération des sources
       test -d mapcache || git clone https://github.com/mapserver/mapcache.git
@@ -564,14 +594,16 @@ Vagrant.configure("2") do |config|
       mkdir build
       cd build
       cmake3 -Wno-dev \
+             -DCMAKE_PREFIX_PATH=${TEMP_INSTALL} \
              -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR} \
-             -DWITH_TIFF=ON \
-             -DWITH_GEOTIFF=ON \
-             -DWITH_POSTGRESQL=ON \
-             -DWITH_GDAL=OFF \
-             -DWITH_OGR=OFF \
-             -DWITH_GEOS=OFF \
-             -DWITH_PCRE=ON \
+             -DWITH_TIFF=1 \
+             -DWITH_GEOTIFF=1 \
+             -DWITH_POSTGRESQL=1 \
+             -DWITH_GDAL=1 \
+             -DWITH_OGR=1 \
+             -DWITH_GEOS=1 \
+             -DWITH_PCRE=1 \
+             -DWITH_FCGI=1 \
              ..
       make
 
@@ -613,10 +645,68 @@ Vagrant.configure("2") do |config|
       cd ..
 
       ###  Suppression des installations provisoires des dépendances
-      rpm -e ${PREFIX}-sqlite3
+      rpm -e ${PREFIX}-ecw \
+             ${PREFIX}-kdu \
+             ${PREFIX}-proj \
+             ${PREFIX}-sqlite3 \
+             ${PREFIX}-expat \
+             ${PREFIX}-gdal
 
       ###  Supression des fichiers de post-installation
       rm ${MODPATH}
+
+    fi
+
+
+    #########################################
+    #  Création du dépôt yum avec tous les
+    #  RPM dedans
+    #
+
+    ###  Placement dans le dossier partagé
+    cd /vagrant
+
+    if [ ! -f ${PREFIX}-repo-*.x86_64.rpm ] ; then
+
+      ###  Préparation du dossier d'installation
+      rm -rf ${INSTALL_DIR}
+      mkdir -p ${INSTALL_DIR}
+
+      ###  Préparation du dossier du dépôt
+      cd ${INSTALL_DIR}
+      mkdir -p etc/yum
+      cd etc/yum
+
+      ###  Création du dépôt
+      cp /vagrant/*.rpm .
+      createrepo .
+      cd /etc/yum.repos.d
+      cat <<- REPOCONF_EOF > ${PREFIX}.repo
+	[${PREFIX}]
+	name=Custom Packages and Dependencies (${PREFIX})
+	baseurl=file://${INSTALL_DIR}/etc/yum/
+	gpgcheck=0
+	enabled=1
+	REPOCONF_EOF
+
+      ###  Création du RPM
+      cd /vagrant
+      MAJOR=1
+      MINOR=0
+      PATCH=0
+      rm -rf build
+      mkdir build
+      cd build
+      cmake3 -DNAME=${PREFIX}-repo \
+             -DVERSION="${MAJOR}.${MINOR}.${PATCH}" \
+             -DRELEASE=1 \
+             -DINSTALL_DIR=${INSTALL_DIR} \
+             -DDIRS="etc" \
+             -DFILES="/etc/yum.repos.d/${PREFIX}.repo" \
+             ..
+      cpack3 -G RPM
+      mv *.rpm ..
+      cd ..
 
     fi
 

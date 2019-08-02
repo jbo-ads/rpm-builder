@@ -39,6 +39,7 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/man/man1
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/man/man3
   ${CPACK_PACKAGING_INSTALL_PREFIX}/share/doc
+  /etc/yum.repos.d
   /usr/lib64/httpd
   /usr/lib64/httpd/modules)
 
