@@ -615,14 +615,14 @@ Vagrant.configure("2") do |config|
       mv ${MODPATH} ${INSTALL_DIR}/lib
       ln -s ${INSTALL_DIR}/lib/mod_mapcache.so ${MODPATH}
 
-      ###  Réglage du RPATH
-      cd ${INSTALL_DIR}/lib
-      for so in libmapcache.so.1.8.0 mod_mapcache.so ; do
-        patchelf --set-rpath '$ORIGIN' ${so}
-      done
-      for exe in ../bin/* ; do
-        patchelf --set-rpath '$ORIGIN/../lib' ${exe}
-      done
+      ###  Préparation du réglage du RPATH via un script de post-installation
+      cat <<- POSTINSTALL_EOF > /tmp/${PREFIX}-mapcache.postinstall
+	patchelf --set-rpath '\\$ORIGIN' ${INSTALL_DIR}/lib/libmapcache.so.1.8.0
+	patchelf --set-rpath '\\$ORIGIN' ${INSTALL_DIR}/lib/mod_mapcache.so
+	patchelf --set-rpath '\\$ORIGIN/../lib' ${INSTALL_DIR}/bin/mapcache_detail
+	patchelf --set-rpath '\\$ORIGIN/../lib' ${INSTALL_DIR}/bin/mapcache_seed
+	patchelf --set-rpath '\\$ORIGIN/../lib' ${INSTALL_DIR}/bin/mapcache.fcgi
+	POSTINSTALL_EOF
 
       ###  Création du RPM
       cd /vagrant
@@ -639,6 +639,7 @@ Vagrant.configure("2") do |config|
              -DINSTALL_DIR=${INSTALL_DIR} \
              -DDIRS="bin;lib" \
              -DFILES="${MODPATH}" \
+             -DPOST=/tmp/${PREFIX}-mapcache.postinstall \
              ..
       cpack3 -G RPM
       mv *.rpm ..

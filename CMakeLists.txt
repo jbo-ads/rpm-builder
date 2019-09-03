@@ -16,6 +16,9 @@ foreach(FILE ${FILES})
   install(PROGRAMS ${FILE} DESTINATION ${DEST})
 endforeach()
 
+if(DEFINED POST)
+  set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE ${POST})
+endif()
 
 set(CPACK_GENERATOR "RPM")
 set(CPACK_PACKAGE_NAME ${NAME})
