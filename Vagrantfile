@@ -423,6 +423,7 @@ Vagrant.configure("2") do |config|
                   --with-expat \
                   --with-sqlite3 \
                   --with-geos \
+                  --with-curl \
                   --with-proj
       make
 
