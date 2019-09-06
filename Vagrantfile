@@ -422,6 +422,7 @@ Vagrant.configure("2") do |config|
                   --with-local=${TEMP_INSTALL} \
                   --with-expat \
                   --with-sqlite3 \
+                  --with-geos \
                   --with-proj
       make
 
